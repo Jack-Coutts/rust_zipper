@@ -1,0 +1,11 @@
+[package]
+name = "rust_zipper"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "4.5.1" # For parsing command-line arguments
+walkdir = "2.3.2" # For walking through directories
+zip = "0.6.6" # For zipping files
