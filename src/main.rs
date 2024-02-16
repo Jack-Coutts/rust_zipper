@@ -76,18 +76,38 @@ fn zip_directories(base_path: &str, include_files: bool) -> io::Result<()> {
     let start = Instant::now();
     let mut items_processed = 0;
 
-    for entry in WalkDir::new(base_path)
+    // Create a PathBuf from the base path
+    let base_path_buf = PathBuf::from(base_path);
+
+    // Define the path for the 'zipped' directory within the base path
+    let zipped_dir = base_path_buf.join("zipped");
+    fs::create_dir_all(&zipped_dir)?;
+
+    for entry in WalkDir::new(&base_path_buf)
         .min_depth(1)
         .into_iter()
+        .filter_entry(|e| e.path() != zipped_dir) // Skip the 'zipped' directory itself
         .filter_map(|e| e.ok()) {
         let path = entry.path();
+
+        // Skip the 'zipped' directory if it's encountered
+        if path == zipped_dir {
+            continue;
+        }
+
         if path.is_dir() || (include_files && path.is_file()) {
-            let relative_path = path.strip_prefix(base_path)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-                .to_path_buf();
-            let zip_file_name = format!("{}.zip", relative_path.to_str().unwrap().replace("/", "_"));
-            let file = File::create(&zip_file_name)?;
+            let relative_path = path.strip_prefix(&base_path_buf)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+            // Define the full path for the zip file within the 'zipped' directory
+            let zip_file_path = zipped_dir.join(format!("{}.zip", relative_path.to_str().unwrap().replace("/", "_")));
+
+            let file = File::create(&zip_file_path)?;
             let mut zip = ZipWriter::new(file);
+
+            let options = FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored)
+                .large_file(true); // Enable Zip64 format
 
             if path.is_dir() {
                 for entry in fs::read_dir(path)? {
@@ -95,7 +115,6 @@ fn zip_directories(base_path: &str, include_files: bool) -> io::Result<()> {
                     let file_path = entry.path();
                     if file_path.is_file() {
                         let mut file = File::open(&file_path)?;
-                        let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
                         let file_name = file_path.file_name().unwrap().to_str().unwrap();
                         zip.start_file(file_name, options)?;
                         copy(&mut file, &mut zip)?;
@@ -103,7 +122,6 @@ fn zip_directories(base_path: &str, include_files: bool) -> io::Result<()> {
                 }
             } else if include_files && path.is_file() {
                 let mut file = File::open(path)?;
-                let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
                 let file_name = relative_path.file_name().unwrap().to_str().unwrap();
                 zip.start_file(file_name, options)?;
                 copy(&mut file, &mut zip)?;
@@ -114,7 +132,7 @@ fn zip_directories(base_path: &str, include_files: bool) -> io::Result<()> {
             let elapsed = start.elapsed();
             println!(
                 "Zipped: {} ({} of {}), Time Elapsed: {:.2?}",
-                zip_file_name,
+                zip_file_path.display(),
                 items_processed,
                 total_items,
                 elapsed
@@ -123,6 +141,8 @@ fn zip_directories(base_path: &str, include_files: bool) -> io::Result<()> {
     }
     Ok(())
 }
+
+
 
 fn count_items_to_zip(base_path: &str, include_files: bool) -> io::Result<usize> {
     let mut count = 0;
