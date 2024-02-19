@@ -15,4 +15,6 @@ You will need to unzip the downloaded file and move it to a suitable folder.
 4. After answering these questions the script will run and the files will be zipped. The progress will be printed to the screen and you will be told when the process has finished.
 
 
+The program will zip all folders in the target directory (and optionally the files) and place them in a folder called zipped. 
+
 
