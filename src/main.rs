@@ -1,159 +1,207 @@
-use std::fs::{self, File};
-use std::io::{self, Write, copy};
-use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::io; // Module for command line input/ouput
+use std::path::{Path, PathBuf}; // Module for directory/file paths
+use std::fs; // Module for file system manipulation
+use std::time::Instant; // Modules used for timing things
 use walkdir::WalkDir;
-use zip::{write::FileOptions, ZipWriter};
+use zip::{write::FileOptions, ZipWriter, CompressionMethod};
+use std::fs::File;
+use std::ffi::OsStr;
+
+
+
+// This script aims to be as readable/interpretable as possible 
+// so there are times where it is deliberatly less concise or 
+// efficient than it could be. 
 
 fn main() -> io::Result<()> {
-    // Initialize standard input and output
-    let stdin = io::stdin();
-    let mut stdout = io::stdout();
+    
+        // Introduce the application
+        println!("--------------------");
+        println!("--------------------");
+        println!("Welcome to the zipping CLI!");
+        println!("");
+        println!("To quit the application at any stage simply press Cmd + C");
+        println!("");
+        println!("You will be asked to enter the path for the target directory, see examples of what this might look like below:");
+        println!("");
+        println!("Windows: C:\\Users\\Name\\Documents\\data_to_be_zipped");
+        println!("");
+        println!("Mac: Users/Name/Documents/data_to_be_zipped");
+        println!("");
+        println!("");
 
-    // Introduce the application
-    println!("--------------------");
-    println!("--------------------");
-    println!("Welcome to the zipping CLI!");
-    println!("");
-    println!("To quit the application at any stage simply press Cmd + C");
-    println!("");
-    println!("You will be asked to enter the path for the target directory, see examples of what this might look like below:");
-    println!("");
-    println!("Windows: C:\\Users\\Name\\Documents\\data_to_be_zipped");
-    println!("");
-    println!("Mac: Users/Name/Documents/data_to_be_zipped");
-    println!("");
-    println!("");
+        // Should files be compressed as well as directories?
+        let zip_files = answer_zip_files();
 
+        // Get the path of the target directory
+        let dir_path = get_target_dir();
 
-    let path = loop {
-        // Prompt for the directory path
-        println!("Please enter the directory path: ");
-        stdout.flush()?;
-        let mut path = String::new();
-        stdin.read_line(&mut path)?;
-        let path = path.trim();
-
-        // Check if the path exists and is a directory
-        if !Path::new(&path).exists() {
-            eprintln!("ERROR: The provided path does not exist! Please try again.");
-        } else if !Path::new(&path).is_dir() {
-            eprintln!("ERROR: The provided path is not a directory! Please try again.");
-        } else {
-            break path.to_string();
+        // Zipping
+        if let Err(e) = zip(&dir_path, zip_files) {
+            eprintln!("Error zipping files and directories: {}", e);
         }
-    };
-
-    let include_files = loop {
-        // Prompt for including files outside of directories
-        println!("Do you want to include files outside of directories? (yes/no): ");
-        stdout.flush()?;
-        let mut response = String::new();
-        stdin.read_line(&mut response)?;
-        match response.trim().eq_ignore_ascii_case("yes") {
-            true => break true,
-            false => match response.trim().eq_ignore_ascii_case("no") {
-                true => break false,
-                false => {
-                    eprintln!("ERROR: Invalid response! Please answer 'yes' or 'no'.");
-                }
-            },
-        }
-    };
-
-    // Proceed with zipping directories based on the user's input
-    if let Err(e) = zip_directories(&path, include_files) {
-        eprintln!("Error zipping directories: {}", e);
-        return Err(e);
-    }
-
-    println!("Operation completed successfully.");
-    Ok(())
+        Ok(println!("Operation completed successfully."))
 }
 
-fn zip_directories(base_path: &str, include_files: bool) -> io::Result<()> {
-    let total_items = count_items_to_zip(base_path, include_files)?;
-    let start = Instant::now();
-    let mut items_processed = 0;
+// Function to read in answer to zipping files 
+fn answer_zip_files() -> bool {
+    // Ask the user whether to zip files as well as directories
+    println!("Do you also want to zip files outside of directories? (yes/no): ");
+    // Initiatlise string variable to hold user response
+    let mut input = String::new();
+    // initialise user input
+    io::stdin()
+        .read_line(&mut input) // Read user input and store in the input variable
+        .expect("ERROR: User input cannot be interpreted."); // Print error message if can't read input
 
-    // Create a PathBuf from the base path
-    let base_path_buf = PathBuf::from(base_path);
+    let input = input.trim(); // Remove newline characters
 
-    // Define the path for the 'zipped' directory within the base path
-    let zipped_dir = base_path_buf.join("zipped");
-    fs::create_dir_all(&zipped_dir)?;
+    let output_bool = match input {
+        "yes" => true, // If the user inputs yes then input is set to true
+        "no" => false, // If the user inputs no then input is set to false
+        _ => { // If the user input is anything other than yes or no
+            println!("ERROR: Invalid response! Please answer 'yes' or 'no'.");
+            answer_zip_files() // Recursively call the function again until a valid response is given
+        }
+    };
+    return output_bool
+}
 
-    for entry in WalkDir::new(&base_path_buf)
-        .min_depth(1)
-        .into_iter()
-        .filter_entry(|e| e.path() != zipped_dir) // Skip the 'zipped' directory itself
-        .filter_map(|e| e.ok()) {
+// Function to get the path to the target directory and verify the directory exists
+fn get_target_dir() -> String {
+    // Ask the user for the directory path
+    println!("Please enter the directory path: ");
+    // Initialise a variable to hold the user input
+    let mut directory_path = String::new();
+    io::stdin()
+        .read_line(&mut directory_path)
+        .expect("ERROR: User input cannot be interpreted."); // Print error message if can't read input
+
+    let directory_path = directory_path.trim().to_string(); // Remove newline characters
+    let path = Path::new(&directory_path); // Create a Path type variable 
+    // Check if the path exists and is a directory
+    if path.exists() && path.is_dir() { // Check that the path exists and that is leads to a directory
+        // No action needed
+    } else { // If directory does not exist or is not a directory
+        println!("ERROR: The directory at the path provided does not exist or it is not a directory!");
+        return get_target_dir() // Recursively call the function again until a valid path is given
+    }
+    return directory_path // Return a the directory path as a string rather than a path
+}
+
+fn zip(target_dir_path: &String, zip_files: bool) -> io::Result<()> {
+
+    let start = Instant::now(); // Start a timer
+
+    let target_path = PathBuf::from(target_dir_path); // Create PathBuf from the path String (PathBuf is mutable unlike Path)
+    let zip_path = target_path.join("zipped"); // Create a new PathBuf for zipped directory (slashes are handled automatically for Paths/PathBufs)
+
+    // Correctly calling count_items_in_directory and using its results
+    let (file_count, dir_count) = count_items_in_directory(target_dir_path, zip_files)?;
+    println!("Files to zip: {}, Directories to zip: {}", file_count, dir_count);
+    let total_to_zip = file_count + dir_count;
+
+    if !zip_path.exists() { // Check whether zipping directory has been created
+        // Try to create the directory
+        match fs::create_dir_all(&zip_path) { // Match executes print statement if error returned
+            Ok(_) => {}, // No action needed for Ok, so it's an empty block
+            Err(e) => println!("ERROR: Failed to create directory: {}", e), // Inform the user of the error
+        }
+    }
+
+    let path = Path::new(target_dir_path);
+
+    let mut counter = 0;
+    // Iterate over the entries in the target_directory
+    for entry in fs::read_dir(path)? { 
+        let entry = entry?; // Question marks used to propagate errors upwards
         let path = entry.path();
+        let file_name = entry.file_name().into_string().unwrap();
 
-        // Skip the 'zipped' directory if it's encountered
-        if path == zipped_dir {
+        // Check if the entry is the "zipped" directory and skip it
+        if entry.file_name() == OsStr::new("zipped") {
             continue;
         }
 
-        if path.is_dir() || (include_files && path.is_file()) {
-            let relative_path = path.strip_prefix(&base_path_buf)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        // Determine the zip file name
+        let zip_file_name = format!("{}.zip", file_name.clone());
+        let zip_file_path = zip_path.join(&zip_file_name);
+        
+        if path.is_dir() {
 
-            // Define the full path for the zip file within the 'zipped' directory
-            let zip_file_path = zipped_dir.join(format!("{}.zip", relative_path.to_str().unwrap().replace("/", "_")));
+        // Create a new zip writer for each file/directory
+        let file = File::create(zip_file_path)?;
+        let mut zip = ZipWriter::new(file);
+        let options = FileOptions::default()
+            .compression_method(CompressionMethod::Stored)
+            .unix_permissions(0o755)
+            .large_file(true); // Enable ZIP64 extensions
 
-            let file = File::create(&zip_file_path)?;
-            let mut zip = ZipWriter::new(file);
-
-            let options = FileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored)
-                .large_file(true); // Enable Zip64 format
-
-            if path.is_dir() {
-                for entry in fs::read_dir(path)? {
-                    let entry = entry?;
-                    let file_path = entry.path();
-                    if file_path.is_file() {
-                        let mut file = File::open(&file_path)?;
-                        let file_name = file_path.file_name().unwrap().to_str().unwrap();
-                        zip.start_file(file_name, options)?;
-                        copy(&mut file, &mut zip)?;
-                    }
+            // Add directory contents to the ZIP file
+            for dir_entry in WalkDir::new(&path).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+                let dir_path = dir_entry.path();
+                let name_in_zip = dir_path.strip_prefix(&path).unwrap().to_str().unwrap();
+                if dir_path.is_file() {
+                    let mut f = File::open(dir_path)?;
+                    zip.start_file(name_in_zip, options)?;
+                    io::copy(&mut f, &mut zip)?;
+                } else if dir_path.is_dir() {
+                    zip.add_directory(name_in_zip, options)?;
                 }
-            } else if include_files && path.is_file() {
-                let mut file = File::open(path)?;
-                let file_name = relative_path.file_name().unwrap().to_str().unwrap();
-                zip.start_file(file_name, options)?;
-                copy(&mut file, &mut zip)?;
             }
-
+            counter += 1;
+            let time_elapsed = start.elapsed();
+            println!("Zipped: {} ({} of {}). Time elapsed: {:.2?}", file_name, counter, total_to_zip, time_elapsed);
             zip.finish()?;
-            items_processed += 1;
-            let elapsed = start.elapsed();
-            println!(
-                "Zipped: {} ({} of {}), Time Elapsed: {:.2?}",
-                zip_file_path.display(),
-                items_processed,
-                total_items,
-                elapsed
-            );
-        }
+        } else if zip_files && path.is_file() {
+
+        // Create a new zip writer for each file/directory
+        let file = File::create(zip_file_path)?;
+        let mut zip = ZipWriter::new(file);
+        let options = FileOptions::default()
+            .compression_method(CompressionMethod::Stored)
+            .unix_permissions(0o755)
+            .large_file(true); // Enable ZIP64 extensions
+
+            // Add file to the ZIP file
+            let mut f = File::open(&path)?;
+            zip.start_file(file_name.clone(), options)?;
+            io::copy(&mut f, &mut zip)?;
+            counter += 1;
+            let time_elapsed = start.elapsed();
+            println!("Zipped: {} ({} of {}). Time elapsed: {:.2?}", file_name, counter, total_to_zip, time_elapsed);
+            zip.finish()?;
+        }      
     }
+
     Ok(())
 }
 
+fn count_items_in_directory(target_directory: &str, zip_files: bool) -> std::io::Result<(usize, usize)> {
+    // Convert the target_directory string to a Path
+    let path = Path::new(target_directory);
+    let mut file_count = 0;
+    let mut dir_count = 0;
 
-
-fn count_items_to_zip(base_path: &str, include_files: bool) -> io::Result<usize> {
-    let mut count = 0;
-    for entry in WalkDir::new(base_path)
-        .min_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.is_dir() || (include_files && path.is_file()) {
-            count += 1;
+    let entries = fs::read_dir(path)?;
+    // Iterate over the entries in the target_directory
+    for entry_result in entries { 
+        let entry = entry_result?; // Question marks used to propagate errors upwards
+        let entry_path = entry.path();
+        
+        // Check if the entry is the "zipped" directory and skip it
+        if entry.file_name() == OsStr::new("zipped") {
+            continue;
+        }
+        
+        // Check if the entry is a file or directory
+        if entry_path.is_dir() {
+            dir_count += 1;
+        } else if zip_files && entry_path.is_file() {
+            // If zip_files is true, count files as well
+            file_count += 1;
         }
     }
-    Ok(count)
+
+    Ok((file_count, dir_count))
 }
