@@ -1,20 +1,33 @@
-# Zipping CLI
+# Rust Zipper CLI
 
-## How to download the program
+A convenient command-line tool for zipping directories and files.
 
-* Download the program for Windows machines [here](https://github.com/Jack-Coutts/rust_zipper/releases/latest/download/windows_rust_zipper.exe.zip).
-* Download the program for Mac machines [here](https://github.com/Jack-Coutts/rust_zipper/releases/latest/download/mac_rust_zipper.zip).
+## Download
 
-You will need to unzip the downloaded file and move it to a suitable folder. 
+Choose the appropriate version for your operating system:
 
-## How to run the script
+- [Windows](https://github.com/Jack-Coutts/rust_zipper/releases/latest/download/windows_rust_zipper.exe.zip)
+- [macOS](https://github.com/Jack-Coutts/rust_zipper/releases/latest/download/mac_rust_zipper.zip)
 
-1. To run the script you simply need to double click on the the mac or windows rust_zipper file that you have downloaded. You may be warned that the file is unsafe and in this case you might need to right click on the file and then click open instead.
-2. Once the program is running the terminal or command prompt will open and you will be asked to input the path to your target directory. Input this as instructed by the program.
-3. By default, the program will zip all folders within your target directory but not files. You will be asked whether you also want the files to be zipped and you must answer 'yes' or 'no'.
-4. After answering these questions the script will run and the files will be zipped. The progress will be printed to the screen and you will be told when the process has finished.
+After downloading, unzip the file and move the executable to your preferred location.
 
+## Usage
 
-The program will zip all folders in the target directory (and optionally the files) and place them in a folder called zipped. 
+1. Launch the program by double-clicking the `rust_zipper` executable.
+   - Note: Your system may display a security warning. If so, right-click the file and select "Open" to proceed.
 
+2. When prompted, enter the full path to the directory you want to zip.
 
+3. Choose whether to include individual files in the zipping process:
+   - Enter 'yes' to zip both folders and files
+   - Enter 'no' to zip only folders
+
+4. The program will display its progress and notify you upon completion.
+
+## Output
+
+All zipped contents will be placed in a new folder named `zipped` within your target directory.
+
+## Security Note
+
+This program is safe to use, but always exercise caution when running executables from the internet. If you're concerned, feel free to review the [source code](https://github.com/Jack-Coutts/rust_zipper).
