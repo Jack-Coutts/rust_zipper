@@ -30,4 +30,4 @@ All zipped contents will be placed in a new folder named `zipped` within your ta
 
 ## Security Note
 
-This program is safe to use, but always exercise caution when running executables from the internet. If you're concerned, feel free to review the [source code](https://github.com/Jack-Coutts/rust_zipper).
+This program is safe to use, but always exercise caution when running executables from the internet.
